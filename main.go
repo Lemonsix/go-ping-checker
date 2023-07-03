@@ -13,7 +13,7 @@ type Domain struct {
 
 func ping(domain string, ch chan<- Domain) {
 	start := time.Now()
-	conn, err := net.Dial("icmp", domain)
+	conn, err := net.Dial("ip4:icmp", domain)
 	if err != nil {
 		ch <- Domain{Name: domain, Ping: fmt.Sprintf("Error resolviendo la dirección IP %s: %s", domain, err.Error())}
 		return
