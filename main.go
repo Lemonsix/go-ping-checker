@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net"
-	"sort"
 	"time"
 )
 
@@ -13,110 +12,96 @@ type Domain struct {
 }
 
 func ping(domain string, ch chan<- Domain) {
-	ipAddr, err := net.ResolveIPAddr("ip", domain)
+	start := time.Now()
+	conn, err := net.Dial("icmp", domain)
 	if err != nil {
-		ch <- Domain{Name: domain, Ping: fmt.Sprintf("Error resolviendo la dirección IP para %s: %s", domain, err.Error())}
+		ch <- Domain{Name: domain, Ping: fmt.Sprintf("Error resolviendo la dirección IP %s: %s", domain, err.Error())}
 		return
 	}
 
-	start := time.Now()
-	conn, err := net.DialIP("ip:icmp", nil, ipAddr)
 	if err != nil {
-		ch <- Domain{Name: domain, Ping: fmt.Sprintf("Error al establecer la conexión para %s: %s", domain, err.Error())}
+		ch <- Domain{Name: domain, Ping: fmt.Sprintf("Error al establecer la conexión %s: %s", domain, err.Error())}
 		return
 	}
 	defer conn.Close()
-
 	duration := time.Since(start)
 	ch <- Domain{Name: domain, Ping: duration.String()}
 }
 
-type ByPing []Domain
+func orderByPing(domains []Domain) {
+	n := len(domains)
 
-func (a ByPing) Len() int      { return len(a) }
-func (a ByPing) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByPing) Less(i, j int) bool {
-	// Si el ping es "error", el dominio se coloca al final de la lista
-	if a[i].Ping == "error" {
-		return false
-	}
-	if a[j].Ping == "error" {
-		return true
-	}
+	for i := 0; i < n-1; i++ {
+		minIdx := i
+		for j := i + 1; j < n; j++ {
+			// Parsear la duración del ping
 
-	// Convertir los valores de ping a duraciones
-	pingDuration1, err1 := time.ParseDuration(a[i].Ping)
-	pingDuration2, err2 := time.ParseDuration(a[j].Ping)
-
-	// Si hay un error al convertir las duraciones, colocar el dominio al final de la lista
-	if err1 != nil {
-		return false
+			if domains[j].Ping < domains[minIdx].Ping {
+				minIdx = j
+			}
+		}
+		// Intercambiar los elementos en las posiciones i y minIdx
+		domains[i], domains[minIdx] = domains[minIdx], domains[i]
 	}
-	if err2 != nil {
-		return true
-	}
-
-	// Comparar las duraciones de ping
-	return pingDuration1 < pingDuration2
 }
 
 func main() {
-	domains := []string{
-		"msn.com",
-		"github.com",
-		"dailymotion.com",
-		"google.com",
-		"ok.ru",
-		"netflix.com",
-		"facebook.com",
-		"reddit.com",
-		"office.com",
-		"cnn.com",
-		"imgur.com",
-		"whatsapp.com",
-		"tiktok.com",
-		"microsoft.com",
-		"espn.com",
-		"yahoo.com",
-		"dropbox.com",
-		"twitch.tv",
-		"ebay.com",
-		"paypal.com",
-		"youtube.com",
-		"apple.com",
-		"wikipedia.org",
-		"quora.com",
-		"adobe.com",
-		"spotify.com",
-		"xvideos.com",
-		"pinterest.com",
-		"bing.com",
-		"blogspot.com",
-		"tumblr.com",
-		"qq.com",
-		"twitter.com",
-		"walmart.com",
-		"stackoverflow.com",
-		"vk.com",
-		"baidu.com",
-		"aliyun.com",
-		"aliexpress.com",
-		"yandex.ru",
-		"nytimes.com",
-		"wordpress.com",
-		"tmall.com",
-		"instagram.com",
-		"live.com",
-		"outlook.com",
-		"amazon.com",
-		"taobao.com",
-		"linkedin.com",
+	domains := []Domain{
+		{Name: "msn.com"},
+		{Name: "github.com"},
+		{Name: "dailymotion.com"},
+		{Name: "google.com"},
+		{Name: "ok.ru"},
+		{Name: "netflix.com"},
+		{Name: "facebook.com"},
+		{Name: "reddit.com"},
+		{Name: "office.com"},
+		{Name: "cnn.com"},
+		{Name: "imgur.com"},
+		{Name: "whatsapp.com"},
+		{Name: "tiktok.com"},
+		{Name: "microsoft.com"},
+		{Name: "espn.com"},
+		{Name: "yahoo.com"},
+		{Name: "dropbox.com"},
+		{Name: "twitch.tv"},
+		{Name: "ebay.com"},
+		{Name: "paypal.com"},
+		{Name: "youtube.com"},
+		{Name: "apple.com"},
+		{Name: "wikipedia.org"},
+		{Name: "quora.com"},
+		{Name: "adobe.com"},
+		{Name: "spotify.com"},
+		{Name: "xvideos.com"},
+		{Name: "pinterest.com"},
+		{Name: "bing.com"},
+		{Name: "blogspot.com"},
+		{Name: "tumblr.com"},
+		{Name: "qq.com"},
+		{Name: "twitter.com"},
+		{Name: "walmart.com"},
+		{Name: "stackoverflow.com"},
+		{Name: "vk.com"},
+		{Name: "baidu.com"},
+		{Name: "aliyun.com"},
+		{Name: "aliexpress.com"},
+		{Name: "yandex.ru"},
+		{Name: "nytimes.com"},
+		{Name: "wordpress.com"},
+		{Name: "tmall.com"},
+		{Name: "instagram.com"},
+		{Name: "live.com"},
+		{Name: "outlook.com"},
+		{Name: "amazon.com"},
+		{Name: "taobao.com"},
+		{Name: "linkedin.com"},
 	}
 
 	ch := make(chan Domain)
 
-	for _, domain := range domains {
-		go ping(domain, ch)
+	for i := range domains {
+		go ping(domains[i].Name, ch)
 	}
 
 	pingResults := make([]Domain, 0, len(domains))
@@ -125,15 +110,12 @@ func main() {
 		result := <-ch
 		pingResults = append(pingResults, result)
 	}
-
 	close(ch)
-
-	// Ordenar los resultados por ping
-	sort.Sort(ByPing(pingResults))
-
+	orderByPing(domains)
 	// Mostrar los resultados ordenados
-	fmt.Println("Resultados ordenados:")
-	for _, result := range pingResults {
-		fmt.Printf("Dominio: %s - Ping: %s\n", result.Name, result.Ping)
+	//fmt.Println("Resultados ordenados:")
+
+	for _, domain := range pingResults {
+		fmt.Printf("Dominio: %s - Ping: %s\n", domain.Name, domain.Ping)
 	}
 }
